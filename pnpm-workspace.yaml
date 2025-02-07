@@ -1,0 +1,4 @@
+packages:
+  - "nextjs-import-contact"
+  - "nextjs-import-contact-agent"
+  - "nextjs-import-contact-agentic"

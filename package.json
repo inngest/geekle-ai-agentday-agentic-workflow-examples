@@ -1,0 +1,8 @@
+{
+  "name": "geekle-ai-agentday-agentic-workflow-example",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter nextjs-import-contact dev"
+  }
+}
