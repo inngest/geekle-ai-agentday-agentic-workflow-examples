@@ -18,37 +18,55 @@ export async function importContacts(contacts: any[]) {
     messages: [
       {
         role: "user",
-        content: `Return an object to map the following contact properties: ${Object.keys(
+        content: `Return a JSON object to map the following contact properties: ${Object.keys(
           contacts[0]
         ).join(", ")} to the following properties: ${JSON.stringify(
-          MAP_FIELDS
+          MAP_FIELDS.filter((field) => field !== "ranking")
         )}.
         
-        Return the object wrapped in <json> tags.`,
+        Important:
+          - only a 1-1 mapping is allowed.
+          - only return a mapping if necessary, otherwise return an empty object.`,
       },
     ],
   });
 
-  console.log("result", mapping.choices[0].message.content);
+  console.log("content", mapping.choices[0].message.content);
 
+  const content = mapping.choices[0].message.content;
+  console.log(
+    "content",
+    mapping.choices[0].message.content?.match(/```json(.*)```/)
+  );
+
+  // extract the json object wrapped in ```json tags, ex:
+  // ```json
+  // {
+  //   "fullName": "firstName lastName",
+  //   "email": "email",
+  //   "position": "jobTitle",
+  //   "company": "company"
+  // }
+  // ```
   const mappingObject = JSON.parse(
-    mapping.choices[0].message.content
-      ?.replace(/^```json\n/, "")
-      .replace("\n```", "") || "{}"
+    content?.match(/```json\s*([\s\S]*?)\s*```/)?.[1] || "{}"
   );
 
   console.log("mappingObject", mappingObject);
 
   // 2. Transform the contacts using the mapping object
-  const transformedContacts: Contact[] = contacts.map((contact) => {
-    return Object.keys(contact).reduce((acc, key) => {
-      if (mappingObject[key]) {
-        // @ts-ignore
-        acc[mappingObject[key]] = contact[key];
-      }
-      return acc;
-    }, {} as Contact);
-  });
+  const transformedContacts: Contact[] =
+    Object.keys(mappingObject).length > 0
+      ? contacts.map((contact) => {
+          return Object.keys(contact).reduce((acc, key) => {
+            if (mappingObject[key]) {
+              // @ts-ignore
+              acc[mappingObject[key]] = contact[key];
+            }
+            return acc;
+          }, {} as Contact);
+        })
+      : contacts;
 
   // 3. Fill the rank property based on the job title
   const rankedContacts = transformedContacts.map((contact) => {

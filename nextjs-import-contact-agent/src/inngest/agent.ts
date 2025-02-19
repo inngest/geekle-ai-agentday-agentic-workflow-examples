@@ -6,7 +6,6 @@ import {
   createNetwork,
   openai,
   State,
-  getDefaultRoutingAgent,
 } from "@inngest/agent-kit";
 import { Sandbox } from "@e2b/code-interpreter";
 
@@ -40,29 +39,37 @@ const contactsMapperAgent = createAgent({
       parameters: z.object({
         code: z.string(),
       }),
-      handler: async ({ code }, { network }) => {
-        const sbx = await Sandbox.create();
-        try {
-          await sbx.files.write(
-            "/home/user/contacts.csv",
-            objectsToCSV(network?.state.kv.get("contacts") as any)
-          );
-          const execution = await sbx.runCode(code, { language: "js" });
-          if (execution.logs.stdout.length > 0) {
-            const mappedContacts = JSON.parse(
-              (execution.logs.stdout?.join("") || "").replace(`\n`, "")
+      handler: async ({ code }, { network, step }) => {
+        const res = await step?.run("transform-contacts", async () => {
+          const sbx = await Sandbox.create();
+          try {
+            await sbx.files.write(
+              "/home/user/contacts.csv",
+              objectsToCSV(network?.state.kv.get("contacts") as any)
             );
-            network?.state.kv.set("mapped-contacts", mappedContacts);
-            return "Contacts mapped!";
-          } else if (execution.error) {
-            const { name, traceback } = execution.error;
-            return `${name}: \n ${traceback}`;
+            const execution = await sbx.runCode(code, { language: "js" });
+            if (execution.logs.stdout.length > 0) {
+              const mappedContacts = JSON.parse(
+                (execution.logs.stdout?.join("") || "").replace(`\n`, "")
+              );
+              return mappedContacts;
+            } else if (execution.error) {
+              const { name, traceback } = execution.error;
+              return `Error: "${name}" \n traceback: \n ${traceback}`;
+            } else {
+              return "Error: the code did not print any output";
+            }
+          } catch (error) {
+            return `Could not transform contacts: ${error}`;
+          } finally {
+            await sbx.kill();
           }
-        } catch (error) {
-          return `Could not transform contacts: ${error}`;
-        } finally {
-          await sbx.kill();
+        });
+        if (typeof res === "object") {
+          network?.state.kv.set("mapped-contacts", res);
+          return "Contacts mapped!";
         }
+        return res;
       },
     }),
   ],
@@ -76,9 +83,9 @@ const contactsImporterNetwork = createNetwork({
     model: "gpt-4o",
   }),
   defaultRouter: ({ network }) => {
-    return network?.state.kv.get("mapped-contacts")
+    return network?.state.kv.has("mapped-contacts")
       ? undefined
-      : getDefaultRoutingAgent();
+      : contactsMapperAgent;
   },
 });
 
