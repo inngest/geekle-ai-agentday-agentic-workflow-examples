@@ -12,7 +12,7 @@
     "@e2b/code-interpreter": "^1.0.4",
     "@inngest/agent-kit": "^0.2.2",
     "inngest": "^3.31.4",
-    "next": "15.1.6",
+    "next": "15.2.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.24.1"
